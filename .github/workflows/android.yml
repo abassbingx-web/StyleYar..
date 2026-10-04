@@ -1,0 +1,54 @@
+name: Build StyleYar APK 1.3.0
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract project
+        run: |
+          unzip -o StyleYar_Android_1.3.0_UI.zip -d extracted
+          PROJECT_DIR=$(dirname "$(find extracted -name settings.gradle | head -1)")
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Project: $PROJECT_DIR"
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Build APK
+        run: |
+          cd "$PROJECT_DIR"
+          gradle :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Verify APK
+        run: |
+          APK=$(find "$PROJECT_DIR/app/build/outputs/apk/debug" -name "*.apk" | head -1)
+          echo "APK: $APK"
+          ls -lh "$APK"
+          file "$APK"
+          unzip -t "$APK" >/dev/null
+          test -s "$APK"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: StyleYar-APK-1.3.0
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
